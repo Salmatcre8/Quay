@@ -116,7 +116,16 @@ export interface OffRampQuote {
   sourceAmount: string;
   targetCurrency: string; // ISO code, e.g. "NGN"
   targetAmount: string; // gross amount before fees
-  rate: string; // sourceAsset -> targetCurrency
+  /**
+   * TARGET currency per 1 unit of source asset (issue 5.21): multiplying
+   * `sourceAmount` by `rate` gives the gross target amount. This is the
+   * direction the mock always used and the direction telemetry's effective
+   * rate (`targetAmount / sourceAmount`) is measured in — SEP-38's `price`
+   * is the OPPOSITE (sell units per buy unit), so adapters wrapping SEP-38
+   * must invert it (see {@link targetPerSourceRate}) rather than pass it
+   * through, or every spread computed against settlement is meaningless.
+   */
+  rate: string;
   expiresAt: number; // epoch ms — after this the quote is void
   fee: { amount: string; currency: string; source: "anchor" | "estimated" };
   netTargetAmount: string; // what the seller actually receives
@@ -137,6 +146,22 @@ export class QuoteExpiredError extends Error {
 export function isQuoteExpired(quote: OffRampQuote, now: number = Date.now()): boolean {
   if (Number.isNaN(quote.expiresAt)) return true;
   return now >= quote.expiresAt;
+}
+
+/**
+ * Convert a SEP-38 `price` (SELL units per BUY unit) into
+ * {@link OffRampQuote.rate}'s direction (TARGET currency per 1 source unit),
+ * as a fixed-precision string. 8 decimals: enough that round-tripping a
+ * realistic FX price loses less than the 4-decimal amounts derived from it.
+ * Throws on a non-positive or non-numeric price — a quote carrying one is
+ * unusable and must fail at the adapter, not surface as rate "Infinity".
+ */
+export function targetPerSourceRate(sellPerBuyPrice: string): string {
+  const p = Number(sellPerBuyPrice);
+  if (!Number.isFinite(p) || p <= 0) {
+    throw new Error(`Cannot derive a rate from SEP-38 price "${sellPerBuyPrice}"`);
+  }
+  return (1 / p).toFixed(8);
 }
 
 /** Where the seller wants their local-currency payout to land. */

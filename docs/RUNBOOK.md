@@ -621,6 +621,27 @@ Symptom: payments are landing on-chain but links aren't transitioning to
    mandatory for this reason) - check the Render service's process status
    directly.
 
+## Telemetry rate-unit repair (one-off, issue 5.21)
+
+`offramp_telemetry.quoted_rate` written before the 5.21 fix stored the raw
+SEP-38 `price` (sell per buy) for real anchors, while every other rate in the
+dataset is target-per-source — which made the summary's spread meaningless
+for those rows. The adapters now write target-per-source; existing rows are
+repaired once with:
+
+```bash
+# Against the deployment's DATABASE_URL / DATABASE_AUTH_TOKEN:
+node apps/api/scripts/fix-telemetry-rate-units.mjs           # dry run (default)
+node apps/api/scripts/fix-telemetry-rate-units.mjs --apply   # write
+```
+
+Dry-run first, always: the script prints every row it would invert. Mock rows
+are never touched (they were already in the right unit). **Run `--apply` at
+most once per database** — the column carries no unit tag, so a second apply
+would invert the values back to wrong. Historical `fee_amount` on pre-fix
+non-mock rows was computed across the mixed units and stays unreliable; the
+script deliberately does not rewrite it.
+
 ## Stuck `offramp_pending` job
 
 Symptom: a link has been `offramp_pending` far longer than the anchor's

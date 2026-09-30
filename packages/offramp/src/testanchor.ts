@@ -14,7 +14,7 @@ import {
   type PayoutFieldDescriptor,
   type SellerPayoutRef,
 } from "@checkout/core";
-import { NOOP_LOGGER } from "@checkout/core";
+import { NOOP_LOGGER, targetPerSourceRate } from "@checkout/core";
 import type { AnchorDiscovery, SellerAnchorAuth } from "./anchor-session";
 import { listsCurrency, type Sep1DiscoveryInfo } from "./sep1";
 import { getSep38Prices, getSep38Quote } from "./sep38";
@@ -228,7 +228,10 @@ export class TestAnchorOffRamp implements OffRampPort {
       sourceAmount: input.sourceAmount,
       targetCurrency: input.targetCurrency,
       targetAmount: grossTargetAmount,
-      rate: q.price,
+      // OffRampQuote.rate is TARGET per source (issue 5.21); SEP-38's price
+      // is the inverse. The raw price stays on the stored quote above —
+      // this is a unit conversion at the boundary, not a loss of data.
+      rate: targetPerSourceRate(q.price),
       expiresAt,
       fee: { amount: feeAmount, currency: input.targetCurrency, source: "anchor" },
       netTargetAmount,
@@ -274,7 +277,10 @@ export class TestAnchorOffRamp implements OffRampPort {
       account: input.customer.account,
       targetCurrency: q.buyCurrency,
       targetAmount: "",
-      rate: q.price,
+      // Same direction as OffRampQuote.rate: telemetry falls back to
+      // job.rate at settlement, so a sell-per-buy value here would poison
+      // the spread exactly the way issue 5.21 describes.
+      rate: targetPerSourceRate(q.price),
       status: "pending",
       externalStatus: null,
       lastError: null,

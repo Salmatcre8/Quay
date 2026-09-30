@@ -1112,6 +1112,11 @@ export class LinkService {
           const existing = existingRows.find((r) => r.id === `tel_${link.offrampJobId}`);
           const quotedRate = existing?.quotedRate ?? job.rate;
           const sourceAmount = link.paidAmount ?? link.amount;
+          // Both rates are TARGET per source (issue 5.21): quote.rate is
+          // documented in that direction and every adapter now returns it so,
+          // which is what makes this fee (quoted gross minus actual target,
+          // in target units) and the summary's spread meaningful for real
+          // anchors, not just the mock.
           const effectiveRate = String(Number(job.targetAmount) / Number(sourceAmount));
           const feeAmount = (Number(quotedRate) * Number(sourceAmount) - Number(job.targetAmount)).toFixed(6);
           await this.recordTelemetry(link.offrampJobId!, {
