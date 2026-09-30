@@ -98,7 +98,7 @@ export const webhooks = sqliteTable("webhooks", {
 export const webhookDeliveries = sqliteTable("webhook_deliveries", {
   id: text("id").primaryKey(),
   webhookId: text("webhook_id").notNull(),
-  linkId: text("link_id").notNull(),
+  linkId: text("link_id"),
   event: text("event").notNull(),
   /** Which attempt number this row records (1-based). */
   attempt: integer("attempt").notNull().default(1),
@@ -124,7 +124,7 @@ export const webhookDeliveries = sqliteTable("webhook_deliveries", {
 export const webhookQueue = sqliteTable("webhook_queue", {
   id: text("id").primaryKey(),
   webhookId: text("webhook_id").notNull(),
-  linkId: text("link_id").notNull(),
+  linkId: text("link_id"),
   event: text("event").notNull(),
   /** JSON-serialised event payload — the exact body that will be signed & sent. */
   payload: text("payload").notNull(),
@@ -290,4 +290,20 @@ export const apiKeys = sqliteTable("api_keys", {
   createdAt: integer("created_at").notNull(),
   /** Non-null when the key has been revoked. */
   revokedAt: integer("revoked_at"),
+});
+
+/**
+ * Per-anchor consent record for KYC field disclosure.
+ * No PII values in this table — only field names (from SEP-9 catalogue) and metadata.
+ * Primary key (seller_id, anchor_domain) enforced in BOOTSTRAP_SQL.
+ */
+export const kycConsents = sqliteTable("kyc_consents", {
+  id: text("id").primaryKey(),
+  sellerId: text("seller_id").notNull(),
+  anchorDomain: text("anchor_domain").notNull(),
+  fields: text("fields").notNull(), // JSON string[] of SEP-9 field names
+  grantedAt: integer("granted_at").notNull(),
+  revokedAt: integer("revoked_at"),
+  grantedVia: text("granted_via").notNull(), // 'session'
+  noticeVersion: text("notice_version").notNull(),
 });

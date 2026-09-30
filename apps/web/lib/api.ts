@@ -154,6 +154,7 @@ export type ApiErrorCode =
   | "wrong_network"
   | "unreachable" // synthetic — fetch itself threw (DNS / network down)
   | "server_error" // 5xx or unexpected non-JSON response
+  | "consent_required" // per-anchor consent missing for KYC fields
   // Operator telemetry (issue 5.21):
   | "unauthorized" // telemetry token rejected
   | "telemetry_not_enabled" // deployment has no TELEMETRY_TOKEN configured
@@ -204,6 +205,8 @@ export function describeError(err: CheckoutError): string {
       return "We can't reach the payment service right now. Check your connection and try again.";
     case "server_error":
       return "Something went wrong on the server. Please try again in a moment.";
+    case "consent_required":
+      return "You need to approve sharing these identity fields with the anchor before submitting.";
     default:
       return "An unexpected error occurred. Please try again.";
   }
@@ -496,6 +499,32 @@ export const api = {
 
   submitKyc: (fields: Record<string, string>) =>
     http<KycView>("/seller/kyc", { method: "PUT", body: JSON.stringify(fields) }),
+
+  // KYC consent
+  listKycConsents: () =>
+    http<{ consents: Array<{
+      id: string;
+      anchorDomain: string;
+      fields: string[];
+      grantedAt: number;
+      revokedAt: number | null;
+      grantedVia: string;
+      noticeVersion: string;
+    }> }>("/seller/kyc/consent"),
+
+  grantKycConsent: (anchorDomain: string, fields: string[]) =>
+    http<{
+      id: string;
+      anchorDomain: string;
+      fields: string[];
+      grantedAt: number;
+      revokedAt: number | null;
+      grantedVia: string;
+      noticeVersion: string;
+    }>("/seller/kyc/consent", { method: "POST", body: JSON.stringify({ anchorDomain, fields }) }),
+
+  revokeKycConsent: (anchorDomain: string) =>
+    http<{ revoked: boolean; anchorDomain: string; note: string }>(`/seller/kyc/consent/${encodeURIComponent(anchorDomain)}`, { method: "DELETE" }),
 
   listWebhooks: () => http<{ webhooks: Webhook[] }>("/webhooks"),
 
